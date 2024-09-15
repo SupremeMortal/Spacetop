@@ -28,6 +28,10 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.0.1" date="2024-09-15" type="stable">
+      <url>https://github.com/SupremeMortal/Spacetop/releases/tag/v0.0.1</url>
+      <description/>
+    </release>
     <release version="1.5.3" date="2024-07-04" type="stable">
       <url>https://github.com/Vencord/Vesktop/releases/tag/v1.5.3</url>
       <description>
