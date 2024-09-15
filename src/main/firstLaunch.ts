@@ -19,6 +19,7 @@ import { makeLinksOpenExternally } from "./utils/makeLinksOpenExternally";
 
 interface Data {
     discordBranch: "stable" | "canary" | "ptb";
+    spacebarServer?: "https://spacebar.chat";
     minimizeToTray?: "on";
     autoStart?: "on";
     importSettings?: "on";
@@ -47,6 +48,7 @@ export function createFirstLaunchTour() {
         console.log(data);
         State.store.firstLaunch = false;
         Settings.store.discordBranch = data.discordBranch;
+        Settings.store.spacebarServer = data.spacebarServer;
         Settings.store.minimizeToTray = !!data.minimizeToTray;
         Settings.store.arRPC = !!data.richPresence;
 

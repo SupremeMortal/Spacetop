@@ -12,6 +12,7 @@ import {
     Menu,
     MenuItemConstructorOptions,
     nativeTheme,
+    protocol,
     screen,
     session,
     Tray
@@ -23,6 +24,7 @@ import { isTruthy } from "shared/utils/guards";
 import { once } from "shared/utils/once";
 import type { SettingsStore } from "shared/utils/SettingsStore";
 
+import { httpInterceptor } from "../proxy/proxy";
 import { ICON_PATH } from "../shared/paths";
 import { createAboutWindow } from "./about";
 import { initArRPC } from "./arrpc";
@@ -459,6 +461,8 @@ function createMainWindow() {
         Settings.store.discordBranch === "canary" || Settings.store.discordBranch === "ptb"
             ? `${Settings.store.discordBranch}.`
             : "";
+
+    protocol.handle("https", httpInterceptor(subdomain));
 
     win.loadURL(`https://${subdomain}discord.com/app`);
 

@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <component type="desktop-application">
   <!--Created with jdAppStreamEdit 7.1-->
-  <id>dev.vencord.Vesktop</id>
-  <name>Vesktop</name>
-  <summary>Snappier Discord app with Vencord</summary>
+  <id>dev.hwd.Spacetop</id>
+  <name>Spacetop</name>
+  <summary>Spacebar app with Vencord</summary>
   <developer_name>Vencord Contributors</developer_name>
-  <launchable type="desktop-id">dev.vencord.Vesktop.desktop</launchable>
+  <launchable type="desktop-id">dev.hwd.Spacetop.desktop</launchable>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-3.0</project_license>
   <project_group>Vencord</project_group>
@@ -230,7 +230,7 @@
     <content_attribute id="social-info">intense</content_attribute>
   </content_rating>
   <keywords>
-    <keyword>Discord</keyword>
+    <keyword>Spacebar</keyword>
     <keyword>Vencord</keyword>
     <keyword>Vesktop</keyword>
     <keyword>Privacy</keyword>

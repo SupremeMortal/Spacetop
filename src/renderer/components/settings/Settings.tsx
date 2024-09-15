@@ -14,6 +14,7 @@ import { isMac, isWindows } from "renderer/utils";
 import { AutoStartToggle } from "./AutoStartToggle";
 import { DiscordBranchPicker } from "./DiscordBranchPicker";
 import { NotificationBadgeToggle } from "./NotificationBadgeToggle";
+import { SpacebarServerBox } from "./SpacebarServerBox";
 import { VencordLocationPicker } from "./VencordLocationPicker";
 import { WindowsTransparencyControls } from "./WindowsTransparencyControls";
 
@@ -29,6 +30,7 @@ interface BooleanSetting {
 export type SettingsComponent = ComponentType<{ settings: typeof Settings.store }>;
 
 const SettingsOptions: Record<string, Array<BooleanSetting | SettingsComponent>> = {
+    "Spacebar Server": [SpacebarServerBox],
     "Discord Branch": [DiscordBranchPicker],
     "System Startup & Performance": [
         AutoStartToggle,

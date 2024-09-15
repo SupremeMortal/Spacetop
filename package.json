@@ -1,5 +1,5 @@
 {
-    "name": "vesktop",
+    "name": "spacetop",
     "version": "1.5.3",
     "private": true,
     "description": "Vesktop is a custom Discord desktop app",
@@ -62,8 +62,8 @@
         "pnpm": ">=8"
     },
     "build": {
-        "appId": "dev.vencord.vesktop",
-        "productName": "Vesktop",
+        "appId": "dev.hwd.spacetop",
+        "productName": "Spacetop",
         "files": [
             "!*",
             "!node_modules",
@@ -76,7 +76,7 @@
         "linux": {
             "icon": "build/icon.icns",
             "category": "Network",
-            "maintainer": "vendicated+vesktop@riseup.net",
+            "maintainer": "SupremeMortal",
             "target": [
                 {
                     "target": "deb",
@@ -108,11 +108,11 @@
                 }
             ],
             "desktop": {
-                "Name": "Vesktop",
+                "Name": "Spacetop",
                 "GenericName": "Internet Messenger",
                 "Type": "Application",
                 "Categories": "Network;InstantMessaging;Chat;",
-                "Keywords": "discord;vencord;electron;chat;"
+                "Keywords": "discord;vencord;spacebar;electron;chat;"
             }
         },
         "mac": {

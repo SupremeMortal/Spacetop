@@ -67,7 +67,7 @@ export async function isValidVencordInstall(dir: string) {
 }
 
 export async function ensureVencordFiles() {
-    if (await isValidVencordInstall(VENCORD_FILES_DIR)) return;
+    // if (await isValidVencordInstall(VENCORD_FILES_DIR)) return;
 
     mkdirSync(VENCORD_FILES_DIR, { recursive: true });
 

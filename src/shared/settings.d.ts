@@ -8,6 +8,8 @@ import type { Rectangle } from "electron";
 
 export interface Settings {
     discordBranch?: "stable" | "canary" | "ptb";
+    spacebarServer?: string;
+    serverUrlInvalid?: boolean;
     transparencyOption?: "none" | "mica" | "tabbed" | "acrylic";
     tray?: boolean;
     minimizeToTray?: boolean;
