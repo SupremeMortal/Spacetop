@@ -72,7 +72,7 @@ async function getSpacebarEnv(url: string): Promise<GlobalEnv | undefined> {
         if (response.status === 200) {
             const { cdn, gateway, defaultApiVersion, apiEndpoint } = await response.json();
             return {
-                API_ENDPOINT: apiEndpoint.slice(apiEndpoint.indexOf("//")),
+                API_ENDPOINT: apiEndpoint.slice(apiEndpoint.indexOf("//")) + "/api",
                 API_VERSION: parseInt(defaultApiVersion),
                 GATEWAY_ENDPOINT: gateway,
                 WEBAPP_ENDPOINT: "//app.spacebar.chat",

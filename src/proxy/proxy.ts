@@ -45,7 +45,7 @@ export function httpInterceptor(subdomain: string) {
             Object.keys(spacebarEnv).map(
                 e =>
                     (body = body.replaceAll(
-                        new RegExp(`${e}: .[^,\n]*`, "g"),
+                        new RegExp(`"?${e}"?: ?.[^,\n]*`, "g"),
                         `${e}: '${spacebarEnv![e as keyof GlobalEnv]}'`
                     ))
             );
