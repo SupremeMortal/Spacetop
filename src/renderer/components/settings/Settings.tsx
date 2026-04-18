@@ -1,21 +1,25 @@
 /*
- * SPDX-License-Identifier: GPL-3.0
  * Vesktop, a desktop app aiming to give you a snappier Discord Experience
  * Copyright (c) 2023 Vendicated and Vencord contributors
+ * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
 import "./settings.css";
 
-import { Forms, Switch, Text } from "@vencord/types/webpack/common";
+import { classNameFactory } from "@vencord/types/api/Styles";
+import { BaseText, Divider, ErrorBoundary } from "@vencord/types/components";
 import { ComponentType } from "react";
 import { Settings, useSettings } from "renderer/settings";
 import { isMac, isWindows } from "renderer/utils";
 
 import { AutoStartToggle } from "./AutoStartToggle";
+import { DeveloperOptionsButton } from "./DeveloperOptions";
 import { DiscordBranchPicker } from "./DiscordBranchPicker";
 import { NotificationBadgeToggle } from "./NotificationBadgeToggle";
 import { SpacebarServerBox } from "./SpacebarServerBox";
-import { VencordLocationPicker } from "./VencordLocationPicker";
+import { OutdatedVesktopWarning } from "./OutdatedVesktopWarning";
+import { UserAssetsButton } from "./UserAssets";
+import { VesktopSettingsSwitch } from "./VesktopSettingsSwitch";
 import { WindowsTransparencyControls } from "./WindowsTransparencyControls";
 
 interface BooleanSetting {
@@ -26,6 +30,8 @@ interface BooleanSetting {
     disabled?(): boolean;
     invisible?(): boolean;
 }
+
+export const cl = classNameFactory("vcd-settings-");
 
 export type SettingsComponent = ComponentType<{ settings: typeof Settings.store }>;
 
@@ -39,6 +45,14 @@ const SettingsOptions: Record<string, Array<BooleanSetting | SettingsComponent>>
             title: "Hardware Acceleration",
             description: "Enable hardware acceleration",
             defaultValue: true
+        },
+        {
+            key: "hardwareVideoAcceleration",
+            title: "Video Hardware Acceleration",
+            description:
+                "Enable hardware video acceleration. This can improve performance of screenshare and video playback, but may cause graphical glitches and infinitely loading streams.",
+            defaultValue: false,
+            disabled: () => Settings.store.hardwareAcceleration === false
         }
     ],
     "User Interface": [
@@ -62,12 +76,20 @@ const SettingsOptions: Record<string, Array<BooleanSetting | SettingsComponent>>
             disabled: () => Settings.store.customTitleBar ?? isWindows
         },
         {
+            key: "enableSplashScreen",
+            title: "Enable Splash Screen",
+            description:
+                "Shows a small splash screen while Vesktop is loading. Disabling this option will show the main window earlier while it's still loading.",
+            defaultValue: true
+        },
+        {
             key: "splashTheming",
             title: "Splash theming",
             description: "Adapt the splash window colors to your custom theme",
-            defaultValue: false
+            defaultValue: true
         },
-        WindowsTransparencyControls
+        WindowsTransparencyControls,
+        UserAssetsButton
     ],
     Behaviour: [
         {
@@ -104,8 +126,16 @@ const SettingsOptions: Record<string, Array<BooleanSetting | SettingsComponent>>
             defaultValue: false
         }
     ],
-    Notifications: [NotificationBadgeToggle],
-    Miscelleanous: [
+    Notifications: [
+        NotificationBadgeToggle,
+        {
+            key: "enableTaskbarFlashing",
+            title: "Enable Taskbar Flashing",
+            description: "Flashes the app in your taskbar when you have new notifications.",
+            defaultValue: false
+        }
+    ],
+    Miscellaneous: [
         {
             key: "arRPC",
             title: "Rich Presence",
@@ -120,51 +150,56 @@ const SettingsOptions: Record<string, Array<BooleanSetting | SettingsComponent>>
             defaultValue: false
         }
     ],
-    "Vencord Location": [VencordLocationPicker]
+    "Developer Options": [DeveloperOptionsButton]
 };
 
 function SettingsSections() {
     const Settings = useSettings();
 
-    const sections = Object.entries(SettingsOptions).map(([title, settings]) => (
-        <Forms.FormSection
-            title={title}
-            key={title}
-            className="vcd-settings-section"
-            titleClassName="vcd-settings-title"
-        >
-            {settings.map(Setting => {
-                if (typeof Setting === "function") return <Setting settings={Settings} />;
+    const sections = Object.entries(SettingsOptions).map(([title, settings], i, arr) => (
+        <div key={title} className={cl("category")}>
+            <BaseText size="lg" weight="semibold" tag="h3" className={cl("category-title")}>
+                {title}
+            </BaseText>
 
-                const { defaultValue, title, description, key, disabled, invisible } = Setting;
-                if (invisible?.()) return null;
+            <div className={cl("category-content")}>
+                {settings.map((Setting, i) => {
+                    if (typeof Setting === "function") return <Setting key={`Custom-${i}`} settings={Settings} />;
 
-                return (
-                    <Switch
-                        value={Settings[key as any] ?? defaultValue}
-                        onChange={v => (Settings[key as any] = v)}
-                        note={description}
-                        disabled={disabled?.()}
-                        key={key}
-                    >
-                        {title}
-                    </Switch>
-                );
-            })}
-        </Forms.FormSection>
+                    const { defaultValue, title, description, key, disabled, invisible } = Setting;
+                    if (invisible?.()) return null;
+
+                    return (
+                        <VesktopSettingsSwitch
+                            title={title}
+                            description={description}
+                            value={Settings[key as any] ?? defaultValue}
+                            onChange={v => (Settings[key as any] = v)}
+                            disabled={disabled?.()}
+                            key={key}
+                        />
+                    );
+                })}
+            </div>
+
+            {i < arr.length - 1 && <Divider className={cl("category-divider")} />}
+        </div>
     ));
 
     return <>{sections}</>;
 }
 
-export default function SettingsUi() {
-    return (
-        <Forms.FormSection>
-            <Text variant="heading-lg/semibold" style={{ color: "var(--header-primary)" }} tag="h2">
-                Vesktop Settings
-            </Text>
-
-            <SettingsSections />
-        </Forms.FormSection>
-    );
-}
+export default ErrorBoundary.wrap(
+    function SettingsUI() {
+        return (
+            <section>
+                <OutdatedVesktopWarning />
+                <SettingsSections />
+            </section>
+        );
+    },
+    {
+        message:
+            "Failed to render the Vesktop Settings tab. If this issue persists, try to right click the Vesktop tray icon, then click 'Repair Vencord'. And make sure your Vesktop is up to date."
+    }
+);

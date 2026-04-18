@@ -1,7 +1,7 @@
 /*
- * SPDX-License-Identifier: GPL-3.0
  * Vesktop, a desktop app aiming to give you a snappier Discord Experience
  * Copyright (c) 2023 Vendicated and Vencord contributors
+ * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
 import { Settings } from "renderer/settings";
@@ -14,8 +14,7 @@ addPatch({
         {
             find: "platform-web",
             replacement: {
-                // eslint-disable-next-line no-useless-escape
-                match: /(?<=" platform-overlay"\):)\i/,
+                match: '"platform-web"',
                 replace: "$self.getPlatformClass()"
             }
         }

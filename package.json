@@ -1,19 +1,20 @@
 {
     "name": "spacetop",
-    "version": "1.5.3",
+    "version": "1.6.5",
     "private": true,
     "description": "Vesktop is a custom Discord desktop app",
     "keywords": [],
     "homepage": "https://vencord.dev/",
-    "license": "GPL-3.0",
+    "license": "GPL-3.0-or-later",
     "author": "Vendicated <vendicated@riseup.net>",
     "main": "dist/js/main.js",
     "scripts": {
         "build": "tsx scripts/build/build.mts",
         "build:dev": "pnpm build --dev",
+        "buildLibVesktop": "pnpm -C packages/libvesktop install && pnpm -C packages/libvesktop run build",
         "package": "pnpm build && electron-builder",
         "package:dir": "pnpm build && electron-builder --dir",
-        "lint": "eslint . --ext .js,.jsx,.ts,.tsx,.mts,.mjs",
+        "lint": "eslint",
         "lint:fix": "pnpm lint --fix",
         "start": "pnpm build && electron .",
         "start:dev": "pnpm build:dev && electron .",
@@ -21,42 +22,45 @@
         "test": "pnpm lint && pnpm testTypes",
         "testTypes": "tsc --noEmit",
         "watch": "pnpm build --watch",
-        "updateMeta": "tsx scripts/utils/updateMeta.mts"
+        "generateMeta": "tsx scripts/utils/generateMeta.mts",
+        "updateArrpcDB": "node ./node_modules/arrpc/update_db.js",
+        "postinstall": "pnpm updateArrpcDB"
     },
     "dependencies": {
-        "arrpc": "github:OpenAsar/arrpc#c62ec6a04c8d870530aa6944257fe745f6c59a24",
-        "electron-updater": "^6.2.1"
+        "arrpc": "github:OpenAsar/arrpc#2234e9c9111f4c42ebcc3aa6a2215bfd979eef77",
+        "electron-updater": "^6.6.2"
     },
     "optionalDependencies": {
         "@vencord/venmic": "^6.1.0"
     },
     "devDependencies": {
         "@fal-works/esbuild-plugin-global-externals": "^2.1.2",
-        "@types/node": "^20.14.11",
-        "@types/react": "^18.3.3",
-        "@typescript-eslint/eslint-plugin": "^7.17.0",
-        "@typescript-eslint/parser": "^7.17.0",
-        "@vencord/types": "^1.8.4",
-        "dotenv": "^16.4.5",
-        "electron": "^31.2.1",
-        "electron-builder": "^25.0.1",
-        "esbuild": "^0.20.2",
-        "eslint": "^8.57.0",
-        "eslint-config-prettier": "^9.1.0",
+        "@stylistic/eslint-plugin": "^5.10.0",
+        "@types/node": "^25.5.0",
+        "@types/react": "19.2.9",
+        "@vencord/types": "^1.14.1",
+        "dotenv": "^17.3.1",
+        "electron": "^41.0.4",
+        "electron-builder": "^26.8.1",
+        "esbuild": "^0.27.4",
+        "eslint": "^10.1.0",
         "eslint-import-resolver-alias": "^1.1.2",
-        "eslint-plugin-license-header": "^0.6.1",
-        "eslint-plugin-path-alias": "^1.1.0",
-        "eslint-plugin-prettier": "^5.2.1",
+        "eslint-plugin-path-alias": "^2.1.0",
+        "eslint-plugin-prettier": "^5.5.5",
+        "eslint-plugin-react": "^7.37.5",
+        "eslint-plugin-simple-header": "^1.2.2",
         "eslint-plugin-simple-import-sort": "^12.1.1",
-        "eslint-plugin-unused-imports": "^3.2.0",
-        "prettier": "^3.3.3",
+        "eslint-plugin-unused-imports": "^4.4.1",
+        "libvesktop": "link:packages/libvesktop",
+        "prettier": "^3.8.1",
         "source-map-support": "^0.5.21",
-        "tsx": "^4.16.2",
-        "type-fest": "^4.23.0",
-        "typescript": "^5.5.4",
-        "xml-formatter": "^3.6.3"
+        "tsx": "^4.21.0",
+        "type-fest": "^5.5.0",
+        "typescript": "^6.0.2",
+        "typescript-eslint": "^8.57.2",
+        "xml-formatter": "^3.6.7"
     },
-    "packageManager": "pnpm@9.1.0",
+    "packageManager": "pnpm@10.7.1",
     "engines": {
         "node": ">=18",
         "pnpm": ">=8"
@@ -64,6 +68,7 @@
     "build": {
         "appId": "dev.hwd.spacetop",
         "productName": "Spacetop",
+        "executableName": "vesktop",
         "files": [
             "!*",
             "!node_modules",
@@ -72,9 +77,16 @@
             "package.json",
             "LICENSE"
         ],
-        "beforePack": "scripts/build/sandboxFix.js",
+        "protocols": {
+            "name": "Discord",
+            "schemes": [
+                "discord"
+            ]
+        },
+        "beforePack": "scripts/build/beforePack.mjs",
+        "afterPack": "scripts/build/afterPack.mjs",
         "linux": {
-            "icon": "build/icon.icns",
+            "icon": "build/icon.svg",
             "category": "Network",
             "maintainer": "SupremeMortal",
             "target": [
@@ -108,11 +120,15 @@
                 }
             ],
             "desktop": {
-                "Name": "Spacetop",
-                "GenericName": "Internet Messenger",
-                "Type": "Application",
-                "Categories": "Network;InstantMessaging;Chat;",
-                "Keywords": "discord;vencord;spacebar;electron;chat;"
+                "entry": {
+                    "Name": "Spacetop",
+                    "GenericName": "Internet Messenger",
+                    "Type": "Application",
+                    "Categories": "Network;InstantMessaging;Chat;",
+                    "Keywords": "discord;vencord;spacebar;electron;chat;",
+                    "MimeType": "x-scheme-handler/discord",
+                    "StartupWMClass": "vesktop"
+                }
             }
         },
         "mac": {
@@ -130,7 +146,8 @@
                 "NSMicrophoneUsageDescription": "This app needs access to the microphone",
                 "NSCameraUsageDescription": "This app needs access to the camera",
                 "com.apple.security.device.audio-input": true,
-                "com.apple.security.device.camera": true
+                "com.apple.security.device.camera": true,
+                "CFBundleIconName": "Icon"
             },
             "notarize": true
         },
@@ -160,6 +177,7 @@
             "oneClick": false
         },
         "win": {
+            "icon": "build/icon.ico",
             "target": [
                 {
                     "target": "nsis",
@@ -181,15 +199,30 @@
             "provider": "github"
         },
         "rpm": {
-              "fpm": [
+            "fpm": [
                 "--rpm-rpmbuild-define=_build_id_links none"
-              ]
+            ]
+        },
+        "electronFuses": {
+            "runAsNode": false,
+            "enableCookieEncryption": false,
+            "enableNodeOptionsEnvironmentVariable": false,
+            "enableNodeCliInspectArguments": false,
+            "enableEmbeddedAsarIntegrityValidation": false,
+            "onlyLoadAppFromAsar": true,
+            "loadBrowserProcessSpecificV8Snapshot": false,
+            "grantFileProtocolExtraPrivileges": false
         }
     },
     "pnpm": {
         "patchedDependencies": {
-            "arrpc@3.4.0": "patches/arrpc@3.4.0.patch"
-        }
+            "arrpc@3.5.0": "patches/arrpc@3.5.0.patch",
+            "electron-updater": "patches/electron-updater.patch"
+        },
+        "onlyBuiltDependencies": [
+            "@vencord/venmic",
+            "electron",
+            "esbuild"
+        ]
     }
 }
-

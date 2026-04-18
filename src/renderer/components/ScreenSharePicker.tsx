@@ -1,34 +1,49 @@
 /*
- * SPDX-License-Identifier: GPL-3.0
  * Vesktop, a desktop app aiming to give you a snappier Discord Experience
  * Copyright (c) 2023 Vendicated and Vencord contributors
+ * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
 import "./screenSharePicker.css";
 
-import { closeModal, Logger, Modals, ModalSize, openModal, useAwaiter } from "@vencord/types/utils";
-import { findStoreLazy, onceReady } from "@vencord/types/webpack";
+import { classNameFactory } from "@vencord/types/api/Styles";
 import {
+    BaseText,
     Button,
     Card,
-    FluxDispatcher,
-    Forms,
-    Select,
-    Switch,
-    Text,
-    UserStore,
-    useState
-} from "@vencord/types/webpack/common";
+    CogWheel,
+    FormSwitch,
+    Heading,
+    HeadingTertiary,
+    Margins,
+    Paragraph,
+    RestartIcon,
+    Span
+} from "@vencord/types/components";
+import {
+    closeModal,
+    Logger,
+    ModalCloseButton,
+    Modals,
+    ModalSize,
+    openModal,
+    useAwaiter,
+    useForceUpdater
+} from "@vencord/types/utils";
+import { onceReady } from "@vencord/types/webpack";
+import { FluxDispatcher, MediaEngineStore, Select, UserStore, useState } from "@vencord/types/webpack/common";
 import { Node } from "@vencord/venmic";
 import type { Dispatch, SetStateAction } from "react";
 import { addPatch } from "renderer/patches/shared";
-import { useSettings } from "renderer/settings";
+import { State, useSettings, useVesktopState } from "renderer/settings";
 import { isLinux, isWindows } from "renderer/utils";
 
-const StreamResolutions = ["480", "720", "1080", "1440"] as const;
+import { SimpleErrorBoundary } from "./SimpleErrorBoundary";
+
+const StreamResolutions = ["480", "720", "1080", "1440", "2160"] as const;
 const StreamFps = ["15", "30", "60"] as const;
 
-const MediaEngineStore = findStoreLazy("MediaEngineStore");
+const cl = classNameFactory("vcd-screen-picker-");
 
 export type StreamResolution = (typeof StreamResolutions)[number];
 export type StreamFps = (typeof StreamFps)[number];
@@ -44,8 +59,6 @@ interface AudioItem {
 }
 
 interface StreamSettings {
-    resolution: StreamResolution;
-    fps: StreamFps;
     audio: boolean;
     contentHint?: string;
     includeSources?: AudioSources;
@@ -69,18 +82,19 @@ const logger = new Logger("VesktopScreenShare");
 addPatch({
     patches: [
         {
-            find: "this.localWant=",
+            find: "this.getDefaultGoliveQuality()",
             replacement: {
-                match: /this.localWant=/,
-                replace: "$self.patchStreamQuality(this);$&"
+                match: /this\.getDefaultGoliveQuality\(\)/,
+                replace: "$self.patchStreamQuality($&)"
             }
         }
     ],
     patchStreamQuality(opts: any) {
-        if (!currentSettings) return;
+        const { screenshareQuality } = State.store;
+        if (!screenshareQuality) return opts;
 
-        const framerate = Number(currentSettings.fps);
-        const height = Number(currentSettings.resolution);
+        const framerate = Number(screenshareQuality.frameRate);
+        const height = Number(screenshareQuality.resolution);
         const width = Math.round(height * (16 / 9));
 
         Object.assign(opts, {
@@ -102,6 +116,7 @@ addPatch({
             height,
             pixelCount: height * width
         });
+        return opts;
     }
 });
 
@@ -153,6 +168,9 @@ export function openScreenSharePicker(screens: Source[], skipPicker: boolean) {
                 onCloseRequest() {
                     closeModal(key);
                     reject("Aborted");
+                },
+                onCloseCallback() {
+                    if (!didSubmit) reject("Aborted");
                 }
             }
         );
@@ -161,13 +179,19 @@ export function openScreenSharePicker(screens: Source[], skipPicker: boolean) {
 
 function ScreenPicker({ screens, chooseScreen }: { screens: Source[]; chooseScreen: (id: string) => void }) {
     return (
-        <div className="vcd-screen-picker-grid">
+        <div className={cl("screen-grid")}>
             {screens.map(({ id, name, url }) => (
-                <label key={id}>
-                    <input type="radio" name="screen" value={id} onChange={() => chooseScreen(id)} />
+                <label key={id} className={cl("screen-label")}>
+                    <input
+                        type="radio"
+                        className={cl("screen-radio")}
+                        name="screen"
+                        value={id}
+                        onChange={() => chooseScreen(id)}
+                    />
 
                     <img src={url} alt="" />
-                    <Text variant="text-sm/normal">{name}</Text>
+                    <Paragraph className={cl("screen-name")}>{name}</Paragraph>
                 </label>
             ))}
         </div>
@@ -187,72 +211,61 @@ function AudioSettingsModal({
 
     return (
         <Modals.ModalRoot {...modalProps} size={ModalSize.MEDIUM}>
-            <Modals.ModalHeader className="vcd-screen-picker-header">
-                <Forms.FormTitle tag="h2">Venmic Settings</Forms.FormTitle>
-                <Modals.ModalCloseButton onClick={close} />
+            <Modals.ModalHeader className={cl("header")}>
+                <BaseText size="lg" weight="semibold" tag="h3" style={{ flexGrow: 1 }}>
+                    Audio Settings
+                </BaseText>
+                <ModalCloseButton onClick={close} />
             </Modals.ModalHeader>
-            <Modals.ModalContent className="vcd-screen-picker-modal">
-                <Switch
+
+            <Modals.ModalContent className={cl("modal", "venmic-settings")}>
+                <FormSwitch
+                    title="Microphone Workaround"
+                    description="Work around an issue that causes the microphone to be shared instead of the correct audio. Only enable if you're experiencing this issue."
                     hideBorder
                     onChange={v => (Settings.audio = { ...Settings.audio, workaround: v })}
                     value={Settings.audio?.workaround ?? false}
-                    note={
-                        <>
-                            Work around an issue that causes the microphone to be shared instead of the correct audio.
-                            Only enable if you're experiencing this issue.
-                        </>
+                />
+                <FormSwitch
+                    title="Only Speakers"
+                    description={
+                        'When sharing entire desktop audio, only share apps that play to a speaker. You may want to disable this when using "mix bussing".'
                     }
-                >
-                    Microphone Workaround
-                </Switch>
-                <Switch
                     hideBorder
                     onChange={v => (Settings.audio = { ...Settings.audio, onlySpeakers: v })}
                     value={Settings.audio?.onlySpeakers ?? true}
-                    note={
-                        <>
-                            When sharing entire desktop audio, only share apps that play to a speaker. You may want to
-                            disable this when using "mix bussing".
-                        </>
-                    }
-                >
-                    Only Speakers
-                </Switch>
-                <Switch
-                    hideBorder
-                    onChange={v => (Settings.audio = { ...Settings.audio, onlyDefaultSpeakers: v })}
-                    value={Settings.audio?.onlyDefaultSpeakers ?? true}
-                    note={
+                />
+                <FormSwitch
+                    title="Only Default Speakers"
+                    description={
                         <>
                             When sharing entire desktop audio, only share apps that play to the <b>default</b> speakers.
                             You may want to disable this when using "mix bussing".
                         </>
                     }
-                >
-                    Only Default Speakers
-                </Switch>
-                <Switch
+                    hideBorder
+                    onChange={v => (Settings.audio = { ...Settings.audio, onlyDefaultSpeakers: v })}
+                    value={Settings.audio?.onlyDefaultSpeakers ?? true}
+                />
+                <FormSwitch
+                    title="Ignore Inputs"
+                    description="Exclude nodes that are intended to capture audio."
                     hideBorder
                     onChange={v => (Settings.audio = { ...Settings.audio, ignoreInputMedia: v })}
                     value={Settings.audio?.ignoreInputMedia ?? true}
-                    note={<>Exclude nodes that are intended to capture audio.</>}
-                >
-                    Ignore Inputs
-                </Switch>
-                <Switch
+                />
+                <FormSwitch
+                    title="Ignore Virtual"
+                    description={
+                        'Exclude virtual nodes, such as nodes belonging to loopbacks. This might be useful when using "mix bussing".'
+                    }
                     hideBorder
                     onChange={v => (Settings.audio = { ...Settings.audio, ignoreVirtual: v })}
                     value={Settings.audio?.ignoreVirtual ?? false}
-                    note={
-                        <>
-                            Exclude virtual nodes, such as nodes belonging to loopbacks. This might be useful when using
-                            "mix bussing".
-                        </>
-                    }
-                >
-                    Ignore Virtual
-                </Switch>
-                <Switch
+                />
+                <FormSwitch
+                    title="Ignore Devices"
+                    description="Exclude device nodes, such as nodes belonging to microphones or speakers."
                     hideBorder
                     onChange={v =>
                         (Settings.audio = {
@@ -262,22 +275,25 @@ function AudioSettingsModal({
                         })
                     }
                     value={Settings.audio?.ignoreDevices ?? true}
-                    note={<>Exclude device nodes, such as nodes belonging to microphones or speakers.</>}
-                >
-                    Ignore Devices
-                </Switch>
-                <Switch
+                />
+                <FormSwitch
+                    title="Granular Selection"
+                    description="Allow to select applications more granularly."
                     hideBorder
                     onChange={value => {
                         Settings.audio = { ...Settings.audio, granularSelect: value };
                         setAudioSources("None");
                     }}
                     value={Settings.audio?.granularSelect ?? false}
-                    note={<>Allow to select applications more granularly.</>}
-                >
-                    Granular Selection
-                </Switch>
-                <Switch
+                />
+                <FormSwitch
+                    title="Device Selection"
+                    description={
+                        <>
+                            Allow to select devices such as microphones. Requires <b>Ignore Devices</b> to be turned
+                            off.
+                        </>
+                    }
                     hideBorder
                     onChange={value => {
                         Settings.audio = { ...Settings.audio, deviceSelect: value };
@@ -285,18 +301,10 @@ function AudioSettingsModal({
                     }}
                     value={Settings.audio?.deviceSelect ?? false}
                     disabled={Settings.audio?.ignoreDevices}
-                    note={
-                        <>
-                            Allow to select devices such as microphones. Requires <b>Ignore Devices</b> to be turned
-                            off.
-                        </>
-                    }
-                >
-                    Device Selection
-                </Switch>
+                />
             </Modals.ModalContent>
-            <Modals.ModalFooter className="vcd-screen-picker-footer">
-                <Button color={Button.Colors.TRANSPARENT} onClick={close}>
+            <Modals.ModalFooter className={cl("footer")}>
+                <Button variant="secondary" onClick={close}>
                     Back
                 </Button>
             </Modals.ModalFooter>
@@ -304,7 +312,35 @@ function AudioSettingsModal({
     );
 }
 
-function StreamSettings({
+function OptionRadio<Settings extends object, Key extends keyof Settings>(props: {
+    options: Array<string> | ReadonlyArray<string>;
+    labels?: Array<string>;
+    settings: Settings;
+    settingsKey: Key;
+    onChange: (option: string) => void;
+}) {
+    const { options, settings, settingsKey, labels, onChange } = props;
+
+    return (
+        <div className={cl("option-radios")}>
+            {(options as string[]).map((option, idx) => (
+                <label className={cl("option-radio")} data-checked={settings[settingsKey] === option} key={option}>
+                    <Span weight="bold">{labels?.[idx] ?? option}</Span>
+                    <input
+                        className={cl("option-input")}
+                        type="radio"
+                        name="fps"
+                        value={option}
+                        checked={settings[settingsKey] === option}
+                        onChange={() => onChange(option)}
+                    />
+                </label>
+            ))}
+        </div>
+    );
+}
+
+function StreamSettingsUi({
     source,
     settings,
     setSettings,
@@ -316,6 +352,7 @@ function StreamSettings({
     skipPicker: boolean;
 }) {
     const Settings = useSettings();
+    const qualitySettings = State.store.screenshareQuality!;
 
     const [thumb] = useAwaiter(
         () => (skipPicker ? Promise.resolve(source.url) : VesktopNative.capturer.getLargeThumbnail(source.id)),
@@ -326,7 +363,7 @@ function StreamSettings({
     );
 
     const openSettings = () => {
-        const key = openModal(props => (
+        openModal(props => (
             <AudioSettingsModal
                 modalProps={props}
                 close={() => props.onClose()}
@@ -339,104 +376,61 @@ function StreamSettings({
 
     return (
         <div>
-            <Forms.FormTitle>What you're streaming</Forms.FormTitle>
-            <Card className="vcd-screen-picker-card vcd-screen-picker-preview">
-                <img
-                    src={thumb}
-                    alt=""
-                    className={isLinux ? "vcd-screen-picker-preview-img-linux" : "vcd-screen-picker-preview-img"}
-                />
-                <Text variant="text-sm/normal">{source.name}</Text>
+            <HeadingTertiary className={Margins.bottom8}>What you're streaming</HeadingTertiary>
+            <Card className={cl("card", "preview")}>
+                <img src={thumb} alt="" className={cl(isLinux ? "preview-img-linux" : "preview-img")} />
+                <Paragraph>{source.name}</Paragraph>
             </Card>
 
-            <Forms.FormTitle>Stream Settings</Forms.FormTitle>
+            <HeadingTertiary className={Margins.bottom8}>Stream Settings</HeadingTertiary>
 
-            <Card className="vcd-screen-picker-card">
-                <div className="vcd-screen-picker-quality">
-                    <section>
-                        <Forms.FormTitle>Resolution</Forms.FormTitle>
-                        <div className="vcd-screen-picker-radios">
-                            {StreamResolutions.map(res => (
-                                <label className="vcd-screen-picker-radio" data-checked={settings.resolution === res}>
-                                    <Text variant="text-sm/bold">{res}</Text>
-                                    <input
-                                        type="radio"
-                                        name="resolution"
-                                        value={res}
-                                        checked={settings.resolution === res}
-                                        onChange={() => setSettings(s => ({ ...s, resolution: res }))}
-                                    />
-                                </label>
-                            ))}
-                        </div>
+            <Card className={cl("card")}>
+                <div className={cl("quality")}>
+                    <section className={cl("quality-section")}>
+                        <Heading tag="h5">Resolution</Heading>
+                        <OptionRadio
+                            options={StreamResolutions}
+                            settings={qualitySettings}
+                            settingsKey="resolution"
+                            onChange={value => (qualitySettings.resolution = value)}
+                        />
                     </section>
 
-                    <section>
-                        <Forms.FormTitle>Frame Rate</Forms.FormTitle>
-                        <div className="vcd-screen-picker-radios">
-                            {StreamFps.map(fps => (
-                                <label className="vcd-screen-picker-radio" data-checked={settings.fps === fps}>
-                                    <Text variant="text-sm/bold">{fps}</Text>
-                                    <input
-                                        type="radio"
-                                        name="fps"
-                                        value={fps}
-                                        checked={settings.fps === fps}
-                                        onChange={() => setSettings(s => ({ ...s, fps }))}
-                                    />
-                                </label>
-                            ))}
-                        </div>
+                    <section className={cl("quality-section")}>
+                        <Heading tag="h5">Frame Rate</Heading>
+                        <OptionRadio
+                            options={StreamFps}
+                            settings={qualitySettings}
+                            settingsKey="frameRate"
+                            onChange={value => (qualitySettings.frameRate = value)}
+                        />
                     </section>
                 </div>
-                <div className="vcd-screen-picker-quality">
-                    <section>
-                        <Forms.FormTitle>Content Type</Forms.FormTitle>
+                <div className={cl("quality")}>
+                    <section className={cl("quality-section")}>
+                        <Heading tag="h5">Content Type</Heading>
                         <div>
-                            <div className="vcd-screen-picker-radios">
-                                <label
-                                    className="vcd-screen-picker-radio"
-                                    data-checked={settings.contentHint === "motion"}
-                                >
-                                    <Text variant="text-sm/bold">Prefer Smoothness</Text>
-                                    <input
-                                        type="radio"
-                                        name="contenthint"
-                                        value="motion"
-                                        checked={settings.contentHint === "motion"}
-                                        onChange={() => setSettings(s => ({ ...s, contentHint: "motion" }))}
-                                    />
-                                </label>
-                                <label
-                                    className="vcd-screen-picker-radio"
-                                    data-checked={settings.contentHint === "detail"}
-                                >
-                                    <Text variant="text-sm/bold">Prefer Clarity</Text>
-                                    <input
-                                        type="radio"
-                                        name="contenthint"
-                                        value="detail"
-                                        checked={settings.contentHint === "detail"}
-                                        onChange={() => setSettings(s => ({ ...s, contentHint: "detail" }))}
-                                    />
-                                </label>
-                            </div>
-                            <div className="vcd-screen-picker-hint-description">
-                                <p>
-                                    Choosing "Prefer Clarity" will result in a significantly lower framerate in exchange
-                                    for a much sharper and clearer image.
-                                </p>
-                            </div>
+                            <OptionRadio
+                                options={["motion", "detail"]}
+                                labels={["Prefer Smoothness", "Prefer Clarity"]}
+                                settings={settings}
+                                settingsKey="contentHint"
+                                onChange={option => setSettings(s => ({ ...s, contentHint: option }))}
+                            />
+
+                            <Paragraph className={Margins.top8}>
+                                Choosing "Prefer Clarity" will result in a significantly lower framerate in exchange for
+                                a much sharper and clearer image.
+                            </Paragraph>
                         </div>
                         {isWindows && (
-                            <Switch
+                            <FormSwitch
+                                title="Stream With Audio"
+                                hideBorder
                                 value={settings.audio}
                                 onChange={checked => setSettings(s => ({ ...s, audio: checked }))}
-                                hideBorder
-                                className="vcd-screen-picker-audio"
-                            >
-                                Stream With Audio
-                            </Switch>
+                                className={cl("audio")}
+                            />
                         )}
                     </section>
                 </div>
@@ -587,8 +581,10 @@ function AudioSourcePickerLinux({
     setIncludeSources: (s: AudioSources) => void;
     setExcludeSources: (s: AudioSources) => void;
 }) {
+    const [audioSourcesSignal, refreshAudioSources] = useForceUpdater(true);
     const [sources, _, loading] = useAwaiter(() => VesktopNative.virtmic.list(), {
-        fallbackValue: { ok: true, targets: [], hasPipewirePulse: true }
+        fallbackValue: { ok: true, targets: [], hasPipewirePulse: true },
+        deps: [audioSourcesSignal]
     });
 
     const hasPipewirePulse = sources.ok ? sources.hasPipewirePulse : true;
@@ -596,32 +592,40 @@ function AudioSourcePickerLinux({
 
     if (!sources.ok && sources.isGlibCxxOutdated) {
         return (
-            <Forms.FormText>
+            <Paragraph>
                 Failed to retrieve Audio Sources because your C++ library is too old to run
-                <a href="https://github.com/Vencord/venmic" target="_blank">
+                <a href="https://github.com/Vencord/venmic" target="_blank" rel="noreferrer">
                     venmic
                 </a>
                 . See{" "}
-                <a href="https://gist.github.com/Vendicated/b655044ffbb16b2716095a448c6d827a" target="_blank">
+                <a
+                    href="https://gist.github.com/Vendicated/b655044ffbb16b2716095a448c6d827a"
+                    target="_blank"
+                    rel="noreferrer"
+                >
                     this guide
                 </a>{" "}
                 for possible solutions.
-            </Forms.FormText>
+            </Paragraph>
         );
     }
 
     if (!hasPipewirePulse && !ignorePulseWarning) {
         return (
-            <Text variant="text-sm/normal">
+            <Paragraph>
                 Could not find pipewire-pulse. See{" "}
-                <a href="https://gist.github.com/the-spyke/2de98b22ff4f978ebf0650c90e82027e#install" target="_blank">
+                <a
+                    href="https://gist.github.com/the-spyke/2de98b22ff4f978ebf0650c90e82027e#install"
+                    target="_blank"
+                    rel="noreferrer"
+                >
                     this guide
                 </a>{" "}
                 on how to switch to pipewire. <br />
                 You can still continue, however, please{" "}
                 <b>beware that you can only share audio of apps that are running under pipewire</b>.{" "}
                 <a onClick={() => setIgnorePulseWarning(true)}>I know what I'm doing!</a>
-            </Text>
+            </Paragraph>
         );
     }
 
@@ -639,49 +643,56 @@ function AudioSourcePickerLinux({
 
     return (
         <>
-            <div className={includeSources === "Entire System" ? "vcd-screen-picker-quality" : undefined}>
+            <div className={cl("audio-sources")}>
                 <section>
-                    <Forms.FormTitle>{loading ? "Loading Sources..." : "Audio Sources"}</Forms.FormTitle>
-                    <Select
-                        options={allSources.map(({ name, value }) => ({
-                            label: name,
-                            value: value,
-                            default: name === "None"
-                        }))}
-                        isSelected={isItemSelected(includeSources)}
-                        select={updateItems(setIncludeSources, includeSources)}
-                        serialize={String}
-                        popoutPosition="top"
-                        closeOnSelect={false}
-                    />
-                </section>
-                {includeSources === "Entire System" && (
-                    <section>
-                        <Forms.FormTitle>Exclude Sources</Forms.FormTitle>
+                    <Heading tag="h5">{loading ? "Loading Sources..." : "Audio Sources"}</Heading>
+                    <SimpleErrorBoundary>
                         <Select
-                            options={allSources
-                                .filter(x => x.name !== "Entire System")
-                                .map(({ name, value }) => ({
-                                    label: name,
-                                    value: value,
-                                    default: name === "None"
-                                }))}
-                            isSelected={isItemSelected(excludeSources)}
-                            select={updateItems(setExcludeSources, excludeSources)}
+                            options={allSources.map(({ name, value }) => ({
+                                label: name,
+                                value: value,
+                                default: name === "None"
+                            }))}
+                            isSelected={isItemSelected(includeSources)}
+                            select={updateItems(setIncludeSources, includeSources)}
                             serialize={String}
                             popoutPosition="top"
                             closeOnSelect={false}
                         />
+                    </SimpleErrorBoundary>
+                </section>
+                {includeSources === "Entire System" && (
+                    <section>
+                        <Heading tag="h5">Exclude Sources</Heading>
+                        <SimpleErrorBoundary>
+                            <Select
+                                options={allSources
+                                    .filter(x => x.name !== "Entire System")
+                                    .map(({ name, value }) => ({
+                                        label: name,
+                                        value: value,
+                                        default: name === "None"
+                                    }))}
+                                isSelected={isItemSelected(excludeSources)}
+                                select={updateItems(setExcludeSources, excludeSources)}
+                                serialize={String}
+                                popoutPosition="top"
+                                closeOnSelect={false}
+                            />
+                        </SimpleErrorBoundary>
                     </section>
                 )}
             </div>
-            <Button
-                color={Button.Colors.TRANSPARENT}
-                onClick={openSettings}
-                className="vcd-screen-picker-settings-button"
-            >
-                Open Audio Settings
-            </Button>
+            <div className={cl("settings-buttons")}>
+                <Button variant="secondary" onClick={refreshAudioSources} className={cl("settings-button")}>
+                    <RestartIcon className={cl("settings-button-icon")} />
+                    Refresh Audio Sources
+                </Button>
+                <Button variant="secondary" onClick={openSettings} className={cl("settings-button")}>
+                    <CogWheel className={cl("settings-button-icon")} />
+                    Open Audio Settings
+                </Button>
+            </div>
         </>
     );
 }
@@ -701,24 +712,28 @@ function ModalComponent({
 }) {
     const [selected, setSelected] = useState<string | undefined>(skipPicker ? screens[0].id : void 0);
     const [settings, setSettings] = useState<StreamSettings>({
-        resolution: "720",
-        fps: "30",
         contentHint: "motion",
         audio: true,
         includeSources: "None"
     });
+    const qualitySettings = (useVesktopState().screenshareQuality ??= {
+        resolution: "720",
+        frameRate: "30"
+    });
 
     return (
         <Modals.ModalRoot {...modalProps} size={ModalSize.MEDIUM}>
-            <Modals.ModalHeader className="vcd-screen-picker-header">
-                <Forms.FormTitle tag="h2">ScreenShare</Forms.FormTitle>
-                <Modals.ModalCloseButton onClick={close} />
+            <Modals.ModalHeader className={cl("header")}>
+                <BaseText size="lg" weight="semibold" tag="h3" style={{ flexGrow: 1 }}>
+                    Screen Share Picker
+                </BaseText>
+                <ModalCloseButton onClick={close} />
             </Modals.ModalHeader>
-            <Modals.ModalContent className="vcd-screen-picker-modal">
+            <Modals.ModalContent className={cl("modal")}>
                 {!selected ? (
                     <ScreenPicker screens={screens} chooseScreen={setSelected} />
                 ) : (
-                    <StreamSettings
+                    <StreamSettingsUi
                         source={screens.find(s => s.id === selected)!}
                         settings={settings}
                         setSettings={setSettings}
@@ -726,14 +741,14 @@ function ModalComponent({
                     />
                 )}
             </Modals.ModalContent>
-            <Modals.ModalFooter className="vcd-screen-picker-footer">
+            <Modals.ModalFooter className={cl("footer")}>
                 <Button
                     disabled={!selected}
                     onClick={() => {
                         currentSettings = settings;
                         try {
-                            const frameRate = Number(settings.fps);
-                            const height = Number(settings.resolution);
+                            const frameRate = Number(qualitySettings.frameRate);
+                            const height = Number(qualitySettings.resolution);
                             const width = Math.round(height * (16 / 9));
 
                             const conn = [...MediaEngineStore.getMediaEngine().connections].find(
@@ -790,11 +805,11 @@ function ModalComponent({
                 </Button>
 
                 {selected && !skipPicker ? (
-                    <Button color={Button.Colors.TRANSPARENT} onClick={() => setSelected(void 0)}>
+                    <Button variant="secondary" onClick={() => setSelected(void 0)}>
                         Back
                     </Button>
                 ) : (
-                    <Button color={Button.Colors.TRANSPARENT} onClick={close}>
+                    <Button variant="secondary" onClick={close}>
                         Cancel
                     </Button>
                 )}
