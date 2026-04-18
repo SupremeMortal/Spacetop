@@ -1,8 +1,10 @@
-# Vesktop
+# Spacetop
 
-Vesktop is a custom Discord desktop app
+A Work-in-Progress Spacebar chat compatible client based on Vesktop.
 
 **Main features**:
+- Connect to any Spacebar server
+- One application for Discord and Spacebar
 - Vencord preinstalled
 - Much more lightweight and faster than the official Discord app
 - Linux Screenshare with sound & wayland
