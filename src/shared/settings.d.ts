@@ -6,10 +6,19 @@
 
 import type { Rectangle } from "electron";
 
+export interface ServerInstance {
+    id: string;
+    name: string;
+    url?: string;
+    type: "discord" | "spacebar";
+}
+
 export interface Settings {
     discordBranch?: "stable" | "canary" | "ptb";
     spacebarServer?: string;
     serverUrlInvalid?: boolean;
+    serverInstances?: ServerInstance[];
+    activeInstanceId?: string;
     transparencyOption?: "none" | "mica" | "tabbed" | "acrylic";
     tray?: boolean;
     minimizeToTray?: boolean;

@@ -1,15 +1,14 @@
 /*
- * SPDX-License-Identifier: GPL-3.0
  * Vesktop, a desktop app aiming to give you a snappier Discord Experience
- * Copyright (c) 2023 Vendicated and Vencord contributors
+ * Copyright (c) 2026 Vendicated and Vesktop contributors
+ * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { Settings } from "../main/settings";
 import { findSpacebarEnv, GlobalEnv } from "../shared/spacebar";
 
-export function httpInterceptor(subdomain: string) {
-    console.log("Spacebar server", Settings.store.spacebarServer);
-    const envPromise = findSpacebarEnv(Settings.store.spacebarServer);
+export function httpInterceptor(subdomain: string, serverUrl?: string) {
+    console.log("Spacebar server", serverUrl);
+    const envPromise = serverUrl ? findSpacebarEnv(serverUrl) : Promise.resolve(undefined);
     return async function handleHttp(request: GlobalRequest): Promise<GlobalResponse> {
         request.headers.set("Origin", "*");
         const response = await fetch(request.url, {

@@ -12,7 +12,6 @@ import {
     MenuItemConstructorOptions,
     nativeTheme,
     Rectangle,
-    protocol,
     screen,
     session
 } from "electron";
@@ -22,16 +21,16 @@ import { isTruthy } from "shared/utils/guards";
 import { once } from "shared/utils/once";
 import type { SettingsStore } from "shared/utils/SettingsStore";
 
-import { httpInterceptor } from "../proxy/proxy";
 import { createAboutWindow } from "./about";
 import { initArRPC } from "./arrpc";
 import { CommandLine } from "./cli";
-import { BrowserUserAgent, DEFAULT_HEIGHT, DEFAULT_WIDTH, MIN_HEIGHT, MIN_WIDTH } from "./constants";
+import { DEFAULT_HEIGHT, DEFAULT_WIDTH, MIN_HEIGHT, MIN_WIDTH } from "./constants";
 import { AppEvents } from "./events";
 import { darwinURL } from "./index";
+import { initInstances, updateBounds } from "./instanceManager";
 import { sendRendererCommand } from "./ipcCommands";
 import { Settings, State, VencordSettings } from "./settings";
-import { createSplashWindow, updateSplashMessage } from "./splash";
+import { createSplashWindow } from "./splash";
 import { destroyTray, initTray } from "./tray";
 import { clearData } from "./utils/clearData";
 import { makeLinksOpenExternally } from "./utils/makeLinksOpenExternally";
@@ -197,6 +196,11 @@ function initWindowBoundsListeners(win: BrowserWindow) {
 
     win.on("resize", saveBounds);
     win.on("move", saveBounds);
+
+    win.on("resize", () => updateBounds(win));
+    win.on("maximize", () => updateBounds(win));
+    win.on("unmaximize", () => updateBounds(win));
+    win.on("restore", () => updateBounds(win));
 }
 
 function initSettingsListeners(win: BrowserWindow) {
@@ -409,37 +413,13 @@ function createMainWindow() {
     initDevtoolsListeners(win);
     initStaticTitle(win);
 
-    win.webContents.setUserAgent(BrowserUserAgent);
-
-    // if the open-url event is fired (in index.ts) while starting up, darwinURL will be set. If not fall back to checking the process args (which Windows and Linux use for URI calling.)
-    // win.webContents.session.clearCache().then(() => {
-    loadUrl(darwinURL || process.argv.find(arg => arg.startsWith("discord://")));
-    // });
+    const initialUri = darwinURL || process.argv.find(arg => arg.startsWith("discord://"));
+    initInstances(win, initialUri);
 
     return win;
 }
 
 const runVencordMain = once(() => require(join(VENCORD_FILES_DIR, "vencordDesktopMain.js")));
-
-export function loadUrl(uri: string | undefined) {
-    const branch = Settings.store.discordBranch;
-    const subdomain = branch === "canary" || branch === "ptb" ? `${branch}.` : "";
-
-    protocol.handle("https", httpInterceptor(subdomain));
-
-    // we do not rely on 'did-finish-load' because it fires even if loadURL fails which triggers early detruction of the splash
-    mainWin
-        .loadURL(`https://${subdomain}discord.com/${uri ? new URL(uri).pathname.slice(1) || "app" : "app"}`)
-        .then(() => AppEvents.emit("appLoaded"))
-        .catch(error => retryUrl(error.url, error.code));
-}
-
-const retryDelay = 1000;
-function retryUrl(url: string, description: string) {
-    console.log(`retrying in ${retryDelay}ms`);
-    updateSplashMessage(`Failed to load Discord: ${description}`);
-    setTimeout(() => loadUrl(url), retryDelay);
-}
 
 export async function createWindows() {
     const startMinimized = CommandLine.values["start-minimized"];
@@ -479,16 +459,5 @@ export async function createWindows() {
         });
     });
 
-    mainWin.webContents.on("did-navigate", (_, url: string, responseCode: number) => {
-        updateSplashMessage(""); // clear the splash message
-
-        // check url to ensure app doesn't loop
-        if (responseCode >= 300 && new URL(url).pathname !== `/app`) {
-            loadUrl(undefined);
-            console.warn(`'did-navigate': Caught bad page response: ${responseCode}, redirecting to main app`);
-        }
-    });
-
-    mainWin.webContents.on("render-process-gone", (event, details) => console.log(details));
     initArRPC();
 }

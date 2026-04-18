@@ -25,8 +25,10 @@ import { release } from "os";
 import { join } from "path";
 
 import { IpcEvents } from "../shared/IpcEvents";
+import { openAddServerDialog } from "./addServerDialog";
 import { setBadgeCount } from "./appBadge";
 import { autoStart } from "./autoStart";
+import { activeInstanceView, addInstance, removeInstance, switchInstance } from "./instanceManager";
 import { mainWin } from "./mainWindow";
 import { Settings, State } from "./settings";
 import { handle, handleSync } from "./utils/ipcWrappers";
@@ -52,10 +54,8 @@ handle(IpcEvents.GET_VESKTOP_RENDERER_CSS, () => readFile(VESKTOP_RENDERER_CSS_P
 
 if (IS_DEV) {
     watch(VESKTOP_RENDERER_CSS_PATH, { persistent: false }, async () => {
-        mainWin?.webContents.postMessage(
-            IpcEvents.VESKTOP_RENDERER_CSS_UPDATE,
-            await readFile(VESKTOP_RENDERER_CSS_PATH, "utf-8")
-        );
+        const css = await readFile(VESKTOP_RENDERER_CSS_PATH, "utf-8");
+        activeInstanceView?.webContents.postMessage(IpcEvents.VESKTOP_RENDERER_CSS_UPDATE, css);
     });
 }
 
@@ -183,3 +183,14 @@ function openDebugPage(page: string) {
 
 handle(IpcEvents.DEBUG_LAUNCH_GPU, () => openDebugPage("chrome://gpu"));
 handle(IpcEvents.DEBUG_LAUNCH_WEBRTC_INTERNALS, () => openDebugPage("chrome://webrtc-internals"));
+
+handle(IpcEvents.GET_INSTANCES, () => ({
+    instances: Settings.store.serverInstances ?? [],
+    activeId: Settings.store.activeInstanceId
+}));
+handle(IpcEvents.SWITCH_INSTANCE, (_, id: string) => switchInstance(mainWin, id));
+handle(IpcEvents.ADD_INSTANCE, (_, config: { name: string; url?: string; type: "discord" | "spacebar" }) =>
+    addInstance(mainWin, config)
+);
+handle(IpcEvents.REMOVE_INSTANCE, (_, id: string) => removeInstance(mainWin, id));
+handle(IpcEvents.OPEN_ADD_SERVER_DIALOG, () => openAddServerDialog(mainWin));

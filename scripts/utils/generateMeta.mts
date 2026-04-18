@@ -54,7 +54,7 @@ const latestReleaseInformation = releases[0];
 
 const metaInfo = await (async () => {
     for (const release of releases) {
-        const metaAsset = release.assets.find((a: any) => a.name === "dev.vencord.Vesktop.metainfo.xml");
+        const metaAsset = release.assets.find((a: any) => a.name === "dev.hwd.spacetop.Spacetop.metainfo.xml");
         if (metaAsset) return fetch(metaAsset.browser_download_url).then(res => res.text());
     }
 })();

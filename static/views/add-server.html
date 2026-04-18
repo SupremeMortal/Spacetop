@@ -1,0 +1,155 @@
+<!doctype html>
+<meta charset="utf-8" />
+<head>
+    <title>Add Server</title>
+    <link rel="stylesheet" href="./common.css" type="text/css" />
+    <style>
+        body {
+            height: 100vh;
+            padding: 1.5em;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+        }
+
+        h2 {
+            margin: 0 0 1em;
+            font-size: 1.1em;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75em;
+            flex: 1;
+        }
+
+        label {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3em;
+            font-size: 0.85em;
+            font-weight: 600;
+            color: var(--fg-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        input {
+            background: var(--bg);
+            color: var(--fg);
+            border: 1px solid var(--fg-semi-trans);
+            border-radius: 4px;
+            padding: 0.5em 0.6em;
+            font-size: 0.95em;
+            outline: none;
+            font-family: inherit;
+        }
+
+        input:focus {
+            border-color: #5865f2;
+        }
+
+        #error {
+            color: #ed4245;
+            font-size: 0.85em;
+            min-height: 1.2em;
+        }
+
+        .actions {
+            display: flex;
+            gap: 0.5em;
+            justify-content: flex-end;
+            margin-top: auto;
+        }
+
+        button {
+            padding: 0.5em 1.2em;
+            border-radius: 4px;
+            border: none;
+            font-size: 0.9em;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        #add-btn {
+            background: #5865f2;
+            color: white;
+        }
+
+        #add-btn:hover:not(:disabled) {
+            background: #4752c4;
+        }
+
+        #add-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        #cancel-btn {
+            background: var(--fg-semi-trans);
+            color: var(--fg);
+        }
+
+        #cancel-btn:hover {
+            background: color-mix(in srgb, var(--fg-semi-trans) 150%, transparent);
+        }
+    </style>
+</head>
+<body>
+    <h2>Add Server</h2>
+    <form id="form">
+        <label>
+            Name
+            <input id="name" type="text" placeholder="My Spacebar Server" autocomplete="off" required />
+        </label>
+        <label>
+            Server URL
+            <input id="url" type="text" placeholder="https://spacebar.example.com" autocomplete="off" required />
+        </label>
+        <span id="error"></span>
+        <div class="actions">
+            <button type="button" id="cancel-btn">Cancel</button>
+            <button type="submit" id="add-btn">Add Server</button>
+        </div>
+    </form>
+
+    <script>
+        document.getElementById("cancel-btn").onclick = () => console.info("cancel");
+
+        document.getElementById("form").onsubmit = async e => {
+            e.preventDefault();
+
+            const name = document.getElementById("name").value.trim();
+            const url = document.getElementById("url").value.trim().replace(/\/$/, "");
+            const errorEl = document.getElementById("error");
+            const addBtn = document.getElementById("add-btn");
+
+            if (!name || !url) return;
+
+            errorEl.textContent = "";
+            addBtn.disabled = true;
+            addBtn.textContent = "Validating\u2026";
+
+            try {
+                const res = await fetch(url + "/api/policies/instance/domains");
+                if (!res.ok) throw new Error("Server returned " + res.status);
+            } catch {
+                try {
+                    const wk = await fetch(url + "/.well-known/spacebar");
+                    if (!wk.ok) throw new Error();
+                } catch {
+                    errorEl.textContent = "Could not reach a Spacebar server at that URL.";
+                    addBtn.disabled = false;
+                    addBtn.textContent = "Add Server";
+                    return;
+                }
+            }
+
+            console.info("form:" + JSON.stringify({ name, url }));
+        };
+
+        document.getElementById("name").focus();
+    </script>
+</body>
